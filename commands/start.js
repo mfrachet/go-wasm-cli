@@ -1,38 +1,55 @@
 const watchman = require("fb-watchman");
+const { exec } = require("child_process");
+const bs = require("browser-sync").create();
 const logger = require("../utils/logger");
 const dir_of_interest = process.cwd();
 
+const startHttpServer = () => {
+  bs.init({
+    notify: false,
+    logLevel: "silent",
+    server: dir_of_interest,
+    callbacks: {
+      ready: (err, browsersync) => {
+        browsersync.utils.serveStatic.mime.define({
+          "application/wasm": ["wasm"]
+        });
+      }
+    }
+  });
+};
+
+const reloadApp = () => bs.reload("*.*");
+
 const makeSubscription = (client, watch, relative_path) => {
-  sub = {
+  const sub = {
     expression: ["allof", ["match", "*.go"]],
-    fields: ["name", "size", "mtime_ms", "exists", "type"]
+    fields: ["name", "size", "exists", "type"]
   };
 
   if (relative_path) {
     sub.relative_root = relative_path;
   }
 
-  client.command(["subscribe", watch, "mysubscription", sub], function(
-    error,
-    resp
-  ) {
+  client.command(["subscribe", watch, "file-watching", sub], error => {
     if (error) {
-      // Probably an error in the subscription criteria
-      logger.error("failed to subscribe: ", error);
-      return;
+      logger.error("Failed to subscribe: ", error);
     }
-    logger.log("subscription " + resp.subscribe + " established");
   });
 
   client.on("subscription", resp => {
-    if (resp.subscription !== "mysubscription") return;
+    if (resp.subscription === "file-watching") {
+      logger.load("Now building...");
 
-    resp.files.forEach(function(file) {
-      // convert Int64 instance to javascript integer
-      const mtime_ms = +file.mtime_ms;
+      exec("GOOS=js GOARCH=wasm go build -o main.wasm", err => {
+        if (err) {
+          return logger.error(err);
+        }
 
-      logger.log("file changed: " + file.name, mtime_ms);
-    });
+        logger.validate("Building done");
+        reloadApp();
+      });
+    }
   });
 };
 
@@ -41,14 +58,12 @@ const start = () => {
 
   client.capabilityCheck(
     { optional: [], required: ["relative_root"] },
-    (error, resp) => {
+    error => {
       if (error) {
         logger.error(error);
-        client.end();
-        return;
+        return client.end();
       }
 
-      // Initiate the watch
       client.command(["watch-project", dir_of_interest], (error, resp) => {
         if (error) {
           throw new Error(error);
@@ -59,12 +74,10 @@ const start = () => {
         }
 
         logger.log(
-          "watch established on ",
-          resp.watch,
-          " relative_path",
-          resp.relative_path
+          `The current folder ${dir_of_interest} is now under watch for modifications. Application started on http://localhost:1234`
         );
 
+        startHttpServer();
         makeSubscription(client, resp.watch, resp.relative_path);
       });
     }

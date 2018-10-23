@@ -6,9 +6,15 @@ A minimalistic cli to create and run (with hot reload) Go application targeting 
 $ npm i -g go-wasm-cli
 ```
 
+## Creating an app
+
+```shell
+$ go-wasm create my-app
+```
+
 ## Running the app
 
 ```javascript
-$ cd your/app/folder
+$ cd my-app
 $ go-wasm start
 ```

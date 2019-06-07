@@ -10,7 +10,6 @@
     "type": "git",
     "url": "https://github.com/mfrachet/go-wasm-cli"
   },
-  "license": "MIT",
   "description": "A minimalistic cli to create and run (with hot reload) Go application targeting WASM",
   "keywords": [
     "go",
@@ -23,6 +22,6 @@
     "express": "^4.16.3",
     "fb-watchman": "^2.0.0",
     "opn": "^5.4.0",
-    "ora": "^3.0.0"
+    "ora": "git://github.com:pyros2097/ora"
   }
 }

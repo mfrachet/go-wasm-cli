@@ -22,20 +22,27 @@ const startHttpServer = () => {
 };
 
 const reloadApp = () => bs.reload("*.*");
+const buildApp = fileName => {
+  exec("GOOS=js GOARCH=wasm go build -o main.wasm", err => {
+    if (err) {
+      return logger.error(`❌  ${err.toString()}`);
+    }
+
+    if (fileName) {
+      logger.succeed(`✅  Building done for ${fileName} changes`);
+    } else {
+      logger.succeed(`✅  Building for the first time? Everything is fine!`);
+    }
+
+    reloadApp();
+  });
+};
 
 const handleWatch = (eventType, fileName) => {
   if (!fileName.includes(".wasm")) {
     logger.load(`⏳  Change found on ${fileName}, building the new version...`);
 
-    exec("GOOS=js GOARCH=wasm go build -o main.wasm", err => {
-      if (err) {
-        return logger.error(`❌  ${err.toString()}`);
-      }
-
-      logger.succeed(`✅  Building done for ${fileName} changes`);
-
-      reloadApp();
-    });
+    buildApp(fileName);
   }
 };
 
@@ -47,6 +54,7 @@ const start = () => {
   );
 
   startHttpServer();
+  buildApp();
 
   fs.watch(process.cwd(), debouncedWatch);
 };

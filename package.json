@@ -20,7 +20,6 @@
     "browser-sync": "^2.24.7",
     "chalk": "^2.4.2",
     "commander": "^2.18.0",
-    "debounce": "^1.2.0",
-    "opn": "^5.4.0"
+    "debounce": "^1.2.0"
   }
 }

@@ -1,85 +1,54 @@
-const watchman = require('fb-watchman');
-const { exec } = require('child_process');
-const bs = require('browser-sync').create();
-const logger = require('../utils/logger');
+const fs = require("fs");
+const { exec } = require("child_process");
+const bs = require("browser-sync").create();
+const logger = require("../utils/logger");
+const debounce = require("debounce");
+
 const dir_of_interest = process.cwd();
 
 const startHttpServer = () => {
   bs.init({
     notify: false,
-    logLevel: 'silent',
+    logLevel: "silent",
     server: dir_of_interest,
     callbacks: {
       ready: (err, browsersync) => {
         browsersync.utils.serveStatic.mime.define({
-          'application/wasm': ['wasm']
+          "application/wasm": ["wasm"]
         });
       }
     }
   });
 };
 
-const reloadApp = () => bs.reload('*.*');
+const reloadApp = () => bs.reload("*.*");
 
-const makeSubscription = (client, watch, relative_path) => {
-  const sub = {
-    expression: ['allof', ['match', '*.go']],
-    fields: ['name', 'size', 'exists', 'type']
-  };
+const handleWatch = (eventType, fileName) => {
+  if (!fileName.includes(".wasm")) {
+    logger.load(`⏳  Change found on ${fileName}, building the new version...`);
 
-  if (relative_path) {
-    sub.relative_root = relative_path;
+    exec("GOOS=js GOARCH=wasm go build -o main.wasm", err => {
+      if (err) {
+        return logger.error(`❌  ${err.toString()}`);
+      }
+
+      logger.succeed(`✅  Building done for ${fileName} changes`);
+
+      reloadApp();
+    });
   }
-
-  client.command(['subscribe', watch, 'file-watching', sub], error => {
-    if (error) {
-      logger.error('Failed to subscribe: ', error);
-    }
-  });
-
-  client.on('subscription', resp => {
-    if (resp.subscription === 'file-watching') {
-      process.stdout.clearLine();
-      process.stdout.cursorTo(0);
-      logger.load('Now building...');
-
-      exec('GOOS=js GOARCH=wasm go build -o main.wasm', err => {
-        process.stdout.clearLine();
-        process.stdout.cursorTo(0);
-        if (err) {
-          return logger.error(err.toString());
-        }
-        logger.validate('Building done');
-        reloadApp();
-      });
-    }
-  });
 };
 
+const debouncedWatch = debounce(handleWatch, 300);
+
 const start = () => {
-  const client = new watchman.Client();
+  logger.log(
+    `😎  The current folder is now under watch for modifications. Application started on http://localhost:1234`
+  );
 
-  client.capabilityCheck({ optional: [], required: ['relative_root'] }, error => {
-    if (error) {
-      logger.error(error);
-      return client.end();
-    }
+  startHttpServer();
 
-    client.command(['watch-project', dir_of_interest], (error, resp) => {
-      if (error) {
-        throw new Error(error);
-      }
-
-      if ('warning' in resp) {
-        logger.warn(resp.warning);
-      }
-
-      logger.log(`The current folder ${dir_of_interest} is now under watch for modifications. Application started on http://localhost:1234`);
-
-      startHttpServer();
-      makeSubscription(client, resp.watch, resp.relative_path);
-    });
-  });
+  fs.watch(process.cwd(), debouncedWatch);
 };
 
 module.exports = start;

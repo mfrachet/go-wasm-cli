@@ -1,17 +1,25 @@
-const ora = require("ora");
+const chalk = require("chalk");
 
-const spinner = ora();
-
-const log = msg => spinner.info(msg);
-const warn = msg => spinner.warn(msg);
-const error = msg => spinner.fail(msg);
-const load = msg => spinner.start(msg);
-const validate = msg => spinner.succeed(msg);
+const log = msg => process.stdout.write(chalk.magenta(`${msg}\n\n`));
+const error = msg => {
+  process.stdout.clearLine();
+  process.stdout.cursorTo(0);
+  process.stdout.write(chalk.red(`${msg}\n\n`));
+};
+const load = msg => {
+  process.stdout.clearLine();
+  process.stdout.cursorTo(0);
+  process.stdout.write(chalk.blue(`${msg}`));
+};
+const succeed = msg => {
+  process.stdout.clearLine();
+  process.stdout.cursorTo(0);
+  process.stdout.write(chalk.green(`${msg}`));
+};
 
 module.exports = {
   log,
-  warn,
   error,
   load,
-  validate
+  succeed
 };
